@@ -2,9 +2,12 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import productsRoutes from './Routes/products.js';
 import categoriesRoutes from './Routes/categories.js';
 import warehousesRoutes from './Routes/warehouses.js';
+
+dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -15,7 +18,7 @@ app.use(bodyParser.json({ limit: '30mb', extended: true }));
 app.use(bodyParser.urlencoded({ limit: '30mb', extended: true }));
 
 // MongoDB Connection
-const CONNECTION_URL = 'mongodb+srv://robsonmanata_db_user:2fdbzPBLUN1bwO9V@cluster0.bhzgvv4.mongodb.net/?appName=Cluster0';
+const CONNECTION_URL = process.env.CONNECTION_URL;
 
 mongoose.connect(CONNECTION_URL)
     .then(() => app.listen(port, () => console.log(`Server is running on port ${port}`)))
