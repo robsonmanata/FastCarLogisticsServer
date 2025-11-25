@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 import productsRoutes from './Routes/products.js';
 import categoriesRoutes from './Routes/categories.js';
 import warehousesRoutes from './Routes/warehouses.js';
+import userRoutes from './Routes/user.js';
+import ordersRoutes from './Routes/orders.js';
 
 dotenv.config();
 
@@ -28,6 +30,8 @@ mongoose.connect(CONNECTION_URL)
 app.use('/products', productsRoutes);
 app.use('/categories', categoriesRoutes);
 app.use('/warehouses', warehousesRoutes);
+app.use('/user', userRoutes);
+app.use('/orders', ordersRoutes);
 
 
 // Start server
