@@ -20,3 +20,25 @@ export const createWarehouse = async (req, res) => {
         res.status(409).json({ message: error.message });
     }
 };
+
+export const updateWarehouse = async (req, res) => {
+    const { id: _id } = req.params;
+    const warehouse = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(_id)) return res.status(404).send('No warehouse with that id');
+
+    const updatedWarehouse = await Warehouse.findByIdAndUpdate(_id, { ...warehouse, _id }, { new: true });
+
+    res.json(updatedWarehouse);
+}
+
+export const deleteWarehouse = async (req, res) => {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(404).send('No warehouse with that id');
+
+    await Warehouse.findByIdAndDelete(id);
+
+    res.json({ message: 'Warehouse deleted successfully' });
+}
+
