@@ -14,7 +14,7 @@ const ProductSchema = mongoose.Schema({
     ProductQuantityUsed: Number,
     ProductBarcode: String,
 
-});
+}, { timestamps: true });
 
 const Product = mongoose.model('Product', ProductSchema);
 

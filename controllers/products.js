@@ -10,12 +10,29 @@ export const getProducts = async (req, res) => {
     }
 };
 
+import Category from '../models/categories.js';
+
+// ... (existing imports)
+
 export const createProduct = async (req, res) => {
     const product = req.body;
     const newProduct = new Product(product);
 
     try {
         await newProduct.save();
+
+        // Add product to category
+        const category = await Category.findOne({ CategoryName: newProduct.ProductCategory });
+        if (category) {
+            category.CategoryProducts.push({
+                productId: newProduct._id,
+                ProductName: newProduct.ProductName,
+                ProductSKU: newProduct.ProductSKU
+
+            });
+            await category.save();
+        }
+
         res.status(201).json(newProduct);
     } catch (error) {
         res.status(409).json({ message: error.message });
@@ -28,9 +45,35 @@ export const updateProduct = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(_id)) return res.status(404).send('No product with that id');
 
-    const updatedProduct = await Product.findByIdAndUpdate(_id, { ...product, _id }, { new: true });
+    try {
+        const oldProduct = await Product.findById(_id);
 
-    res.json(updatedProduct);
+        if (product.ProductCategory && oldProduct.ProductCategory !== product.ProductCategory) {
+            // Remove from old category
+            const oldCategory = await Category.findOne({ CategoryName: oldProduct.ProductCategory });
+            if (oldCategory) {
+                oldCategory.CategoryProducts = oldCategory.CategoryProducts.filter((p) => p.productId !== String(_id));
+                await oldCategory.save();
+            }
+
+            // Add to new category
+            const newCategory = await Category.findOne({ CategoryName: product.ProductCategory });
+            if (newCategory) {
+                newCategory.CategoryProducts.push({
+                    productId: _id,
+                    ProductName: product.ProductName || oldProduct.ProductName,
+                    ProductSKU: product.ProductSKU || oldProduct.ProductSKU
+                });
+                await newCategory.save();
+            }
+        }
+
+        const updatedProduct = await Product.findByIdAndUpdate(_id, { ...product, _id }, { new: true });
+
+        res.json(updatedProduct);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 }
 
 export const deleteProduct = async (req, res) => {

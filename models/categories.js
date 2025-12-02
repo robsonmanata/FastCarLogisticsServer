@@ -5,12 +5,10 @@ const categorySchema = mongoose.Schema({
     CategoryDescription: String,
     CategoryImage: String,
     CategoryProducts: [{
+        productId: String,
         ProductName: String,
         ProductSKU: String,
-
     }],
-
-
 });
 
 const Category = mongoose.model('Category', categorySchema);

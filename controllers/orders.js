@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Order from '../models/orders.js';
+import Product from '../models/products.js';
 
 export const getOrders = async (req, res) => {
     try {
@@ -16,6 +17,16 @@ export const createOrder = async (req, res) => {
 
     try {
         await newOrder.save();
+
+        // Update product quantities (Add stock for deliveries) - Optimized with Promise.all and $inc
+        if (newOrder.Items && newOrder.Items.length > 0) {
+            await Promise.all(newOrder.Items.map(item =>
+                Product.findByIdAndUpdate(item.productId, {
+                    $inc: { ProductQuantity: Number(item.Quantity) }
+                }, { new: true })
+            ));
+        }
+
         res.status(201).json(newOrder);
     } catch (error) {
         res.status(409).json({ message: error.message });
@@ -28,9 +39,33 @@ export const updateOrder = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(_id)) return res.status(404).send('No order with that id');
 
-    const updatedOrder = await Order.findByIdAndUpdate(_id, { ...order, _id }, { new: true });
+    try {
+        // 1. Revert stock changes from the OLD order - Optimized
+        const oldOrder = await Order.findById(_id);
+        if (oldOrder && oldOrder.Items) {
+            await Promise.all(oldOrder.Items.map(item =>
+                Product.findByIdAndUpdate(item.productId, {
+                    $inc: { ProductQuantity: -Number(item.Quantity) }
+                }, { new: true })
+            ));
+        }
 
-    res.json(updatedOrder);
+        // 2. Update the order
+        const updatedOrder = await Order.findByIdAndUpdate(_id, { ...order, _id }, { new: true });
+
+        // 3. Apply stock changes from the NEW order - Optimized
+        if (updatedOrder.Items) {
+            await Promise.all(updatedOrder.Items.map(item =>
+                Product.findByIdAndUpdate(item.productId, {
+                    $inc: { ProductQuantity: Number(item.Quantity) }
+                }, { new: true })
+            ));
+        }
+
+        res.json(updatedOrder);
+    } catch (error) {
+        res.status(409).json({ message: error.message });
+    }
 }
 
 export const deleteOrder = async (req, res) => {
@@ -38,7 +73,21 @@ export const deleteOrder = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(404).send('No order with that id');
 
-    await Order.findByIdAndDelete(id);
+    try {
+        // Revert stock changes (Subtract quantity as we are deleting the "delivery")
+        const order = await Order.findById(id);
+        if (order && order.Items) {
+            await Promise.all(order.Items.map(item =>
+                Product.findByIdAndUpdate(item.productId, {
+                    $inc: { ProductQuantity: -Number(item.Quantity) }
+                }, { new: true })
+            ));
+        }
 
-    res.json({ message: 'Order deleted successfully' });
+        await Order.findByIdAndDelete(id);
+
+        res.json({ message: 'Order deleted successfully' });
+    } catch (error) {
+        res.status(409).json({ message: error.message });
+    }
 }
