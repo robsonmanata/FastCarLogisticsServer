@@ -1,4 +1,6 @@
 import Category from '../models/categories.js';
+import mongoose from 'mongoose';
+import Product from '../models/products.js';
 
 export const getCategories = async (req, res) => {
     try {
@@ -27,9 +29,22 @@ export const updateCategory = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(_id)) return res.status(404).send('No category with that id');
 
-    const updatedCategory = await Category.findByIdAndUpdate(_id, { ...category, _id }, { new: true });
+    try {
+        const oldCategory = await Category.findById(_id);
 
-    res.json(updatedCategory);
+        if (category.CategoryName && oldCategory.CategoryName !== category.CategoryName) {
+            await Product.updateMany(
+                { ProductCategory: oldCategory.CategoryName },
+                { ProductCategory: category.CategoryName }
+            );
+        }
+
+        const updatedCategory = await Category.findByIdAndUpdate(_id, { ...category, _id }, { new: true });
+
+        res.json(updatedCategory);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 }
 
 export const deleteCategory = async (req, res) => {
