@@ -1,4 +1,6 @@
 import Warehouse from '../models/warehouses.js';
+import mongoose from 'mongoose';
+import { createTransaction } from './transactions.js';
 
 export const getWarehouses = async (req, res) => {
     try {
@@ -15,6 +17,17 @@ export const createWarehouse = async (req, res) => {
 
     try {
         await newWarehouse.save();
+
+        await createTransaction({
+            User: warehouse.User || 'System',
+            Type: 'Warehouse Created',
+            Items: [{
+                ProductName: newWarehouse.WarehouseName,
+                Quantity: 0
+            }],
+            Details: `Created Warehouse: ${newWarehouse.WarehouseName}`
+        });
+
         res.status(201).json(newWarehouse);
     } catch (error) {
         res.status(409).json({ message: error.message });
@@ -37,7 +50,20 @@ export const deleteWarehouse = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(404).send('No warehouse with that id');
 
+    const warehouse = await Warehouse.findById(id);
     await Warehouse.findByIdAndDelete(id);
+
+    if (warehouse) {
+        await createTransaction({
+            User: 'System',
+            Type: 'Warehouse Deleted',
+            Items: [{
+                ProductName: warehouse.WarehouseName,
+                Quantity: 0
+            }],
+            Details: `Deleted Warehouse: ${warehouse.WarehouseName}`
+        });
+    }
 
     res.json({ message: 'Warehouse deleted successfully' });
 }

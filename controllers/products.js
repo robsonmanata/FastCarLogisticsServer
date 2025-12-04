@@ -1,9 +1,10 @@
 import Product from '../models/products.js';
 import mongoose from 'mongoose';
+import { createTransaction } from './transactions.js';
 
 export const getProducts = async (req, res) => {
     try {
-        const products = await Product.find();
+        const products = await Product.find().sort({ _id: -1 });
         res.status(200).json(products);
     } catch (error) {
         res.status(404).json({ message: error.message });
@@ -32,6 +33,17 @@ export const createProduct = async (req, res) => {
             });
             await category.save();
         }
+
+        await createTransaction({
+            User: product.User || 'System',
+            Type: 'Product Created',
+            Items: [{
+                ProductId: newProduct._id,
+                ProductName: newProduct.ProductName,
+                Quantity: Number(newProduct.ProductQuantity) || 0
+            }],
+            Details: `Created Product: ${newProduct.ProductName}`
+        });
 
         res.status(201).json(newProduct);
     } catch (error) {
@@ -70,6 +82,22 @@ export const updateProduct = async (req, res) => {
 
         const updatedProduct = await Product.findByIdAndUpdate(_id, { ...product, _id }, { new: true });
 
+        // Calculate quantity difference to log transaction
+        const quantityDiff = (Number(updatedProduct.ProductQuantity) || 0) - (Number(oldProduct.ProductQuantity) || 0);
+
+        if (quantityDiff !== 0) {
+            await createTransaction({
+                User: product.User || 'System',
+                Type: quantityDiff > 0 ? 'Restock' : 'Utilize',
+                Items: [{
+                    ProductId: _id,
+                    ProductName: updatedProduct.ProductName,
+                    Quantity: quantityDiff
+                }],
+                Details: quantityDiff > 0 ? 'Manual Restock' : 'Stock Utilization'
+            });
+        }
+
         res.json(updatedProduct);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -81,7 +109,21 @@ export const deleteProduct = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(404).send('No product with that id');
 
+    const product = await Product.findById(id);
     await Product.findByIdAndDelete(id);
+
+    if (product) {
+        await createTransaction({
+            User: 'System', // Ideally pass user from frontend/auth if possible
+            Type: 'Product Deleted',
+            Items: [{
+                ProductId: product._id,
+                ProductName: product.ProductName,
+                Quantity: -Number(product.ProductQuantity) || 0
+            }],
+            Details: `Deleted Product: ${product.ProductName}`
+        });
+    }
 
     res.json({ message: 'Product deleted successfully' });
 }
