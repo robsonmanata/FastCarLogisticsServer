@@ -8,7 +8,7 @@ import categoriesRoutes from './Routes/categories.js';
 
 import userRoutes from './Routes/user.js';
 import ordersRoutes from './Routes/orders.js';
-import transactionRoutes from './routes/transactions.js';
+import transactionRoutes from './Routes/transactions.js';
 import notificationRoutes from './Routes/notifications.js';
 
 dotenv.config();
