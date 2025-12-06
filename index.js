@@ -5,10 +5,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import productsRoutes from './Routes/products.js';
 import categoriesRoutes from './Routes/categories.js';
-import warehousesRoutes from './Routes/warehouses.js';
+
 import userRoutes from './Routes/user.js';
 import ordersRoutes from './Routes/orders.js';
 import transactionRoutes from './routes/transactions.js';
+import notificationRoutes from './Routes/notifications.js';
 
 dotenv.config();
 
@@ -30,7 +31,8 @@ mongoose.connect(CONNECTION_URL)
 // Routes
 app.use('/products', productsRoutes);
 app.use('/categories', categoriesRoutes);
-app.use('/warehouses', warehousesRoutes);
+
 app.use('/transactions', transactionRoutes);
+app.use('/notifications', notificationRoutes);
 app.use('/user', userRoutes);
 app.use('/orders', ordersRoutes);

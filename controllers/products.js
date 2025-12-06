@@ -1,10 +1,14 @@
 import Product from '../models/products.js';
 import mongoose from 'mongoose';
 import { createTransaction } from './transactions.js';
+import { createNotification } from './notifications.js';
 
 export const getProducts = async (req, res) => {
+    const { limit } = req.query;
     try {
-        const products = await Product.find().sort({ _id: -1 });
+        const products = limit
+            ? await Product.find().sort({ _id: -1 }).limit(Number(limit))
+            : await Product.find().sort({ _id: -1 });
         res.status(200).json(products);
     } catch (error) {
         res.status(404).json({ message: error.message });
@@ -44,6 +48,14 @@ export const createProduct = async (req, res) => {
             }],
             Details: `Created Product: ${newProduct.ProductName}`
         });
+
+        if ((Number(newProduct.ProductQuantity) || 0) < 10) {
+            await createNotification({
+                message: `Low Stock Alert: ${newProduct.ProductName} has ${newProduct.ProductQuantity} items left.`,
+                type: 'Low Stock',
+                relatedId: newProduct._id
+            });
+        }
 
         res.status(201).json(newProduct);
     } catch (error) {
@@ -97,6 +109,15 @@ export const updateProduct = async (req, res) => {
                 Details: quantityDiff > 0 ? 'Manual Restock' : 'Stock Utilization'
             });
         }
+
+        if ((Number(updatedProduct.ProductQuantity) || 0) < 10) {
+            await createNotification({
+                message: `Low Stock Alert: ${updatedProduct.ProductName} has ${updatedProduct.ProductQuantity} items left.`,
+                type: 'Low Stock',
+                relatedId: updatedProduct._id
+            });
+        }
+
 
         res.json(updatedProduct);
     } catch (error) {
