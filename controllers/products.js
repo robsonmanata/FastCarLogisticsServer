@@ -4,12 +4,16 @@ import { createTransaction } from './transactions.js';
 import { createNotification } from './notifications.js';
 
 export const getProducts = async (req, res) => {
-    const { limit } = req.query;
+    const { page } = req.query;
+
     try {
-        const products = limit
-            ? await Product.find().sort({ _id: -1 }).limit(Number(limit))
-            : await Product.find().sort({ _id: -1 });
-        res.status(200).json(products);
+        const LIMIT = 20;
+        const startIndex = (Number(page) - 1) * LIMIT;
+        const total = await Product.countDocuments({});
+
+        const products = await Product.find().sort({ _id: -1 }).limit(LIMIT).skip(startIndex);
+
+        res.status(200).json({ data: products, currentPage: Number(page) || 1, numberOfPages: Math.ceil(total / LIMIT), totalCount: total });
     } catch (error) {
         res.status(404).json({ message: error.message });
     }

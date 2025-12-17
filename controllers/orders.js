@@ -4,9 +4,16 @@ import Product from '../models/products.js';
 import { createTransaction } from './transactions.js';
 
 export const getOrders = async (req, res) => {
+    const { page } = req.query;
+
     try {
-        const orders = await Order.find().sort({ _id: -1 });
-        res.status(200).json(orders);
+        const LIMIT = 20;
+        const startIndex = (Number(page) - 1) * LIMIT;
+        const total = await Order.countDocuments({});
+
+        const orders = await Order.find().sort({ _id: -1 }).limit(LIMIT).skip(startIndex);
+
+        res.status(200).json({ data: orders, currentPage: Number(page) || 1, numberOfPages: Math.ceil(total / LIMIT), totalCount: total });
     } catch (error) {
         res.status(404).json({ message: error.message });
     }

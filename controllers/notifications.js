@@ -2,9 +2,16 @@ import Notification from '../models/notifications.js';
 import mongoose from 'mongoose';
 
 export const getNotifications = async (req, res) => {
+    const { page } = req.query;
+
     try {
-        const notifications = await Notification.find().sort({ createdAt: -1 });
-        res.status(200).json(notifications);
+        const LIMIT = 20;
+        const startIndex = (Number(page) - 1) * LIMIT; // get the starting index of every page
+        const total = await Notification.countDocuments({});
+
+        const notifications = await Notification.find().sort({ createdAt: -1 }).limit(LIMIT).skip(startIndex);
+
+        res.status(200).json({ data: notifications, currentPage: Number(page) || 1, numberOfPages: Math.ceil(total / LIMIT), totalCount: total });
     } catch (error) {
         res.status(404).json({ message: error.message });
     }

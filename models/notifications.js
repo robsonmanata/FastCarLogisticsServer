@@ -13,7 +13,7 @@ const notificationSchema = mongoose.Schema({
     }],
     createdAt: {
         type: Date,
-        default: new Date,
+        default: Date.now,
     },
     relatedId: String, // ID of the product, order, etc.
 });
