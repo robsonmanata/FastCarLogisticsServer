@@ -15,7 +15,7 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
-
+//cores implementation
 // Middleware
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb', extended: true }));
