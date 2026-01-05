@@ -7,6 +7,12 @@ export const getOrders = async (req, res) => {
     const { page } = req.query;
 
     try {
+        if (page === 'all') {
+            const orders = await Order.find().sort({ _id: -1 });
+            res.status(200).json({ data: orders, currentPage: 1, numberOfPages: 1, totalCount: orders.length });
+            return;
+        }
+
         const LIMIT = 20;
         const startIndex = (Number(page) - 1) * LIMIT;
         const total = await Order.countDocuments({});
