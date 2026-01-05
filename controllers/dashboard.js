@@ -2,6 +2,7 @@ import Product from '../models/products.js';
 import Order from '../models/orders.js';
 import Category from '../models/categories.js';
 import Notification from '../models/notifications.js';
+import Transaction from '../models/transactions.js';
 
 export const getDashboardStats = async (req, res) => {
     try {
@@ -63,10 +64,76 @@ export const getDashboardStats = async (req, res) => {
             itemsUsed: itemsUsedCount,
             categories: categoriesCount,
             itemsOrdered: itemsOrderedCount,
-            topCategories: topCategoriesData
+            topCategories: topCategoriesData,
+            graphData: await getDashboardGraphData(req.query.year) // Helper call
         });
 
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
+};
+
+// Helper function for Dashboard Graph Data (Quantity based)
+const getDashboardGraphData = async (reqYear) => {
+    // 1. Get all available years from Orders and Transactions
+    const orderYears = await Order.aggregate([
+        { $project: { year: { $year: "$OrderDate" } } },
+        { $group: { _id: "$year" } },
+        { $sort: { _id: -1 } }
+    ]);
+    const transactionYears = await Transaction.aggregate([
+        { $match: { Type: 'Utilize' } },
+        { $project: { year: { $year: "$TransactionDate" } } },
+        { $group: { _id: "$year" } },
+        { $sort: { _id: -1 } }
+    ]);
+
+    const availableYears = [...new Set([
+        ...orderYears.map(y => y._id),
+        ...transactionYears.map(y => y._id)
+    ])].sort((a, b) => b - a);
+
+    // Default to latest year if none provided, or current year if no data
+    let targetYear = reqYear ? parseInt(reqYear) : (availableYears.length > 0 ? availableYears[0] : new Date().getFullYear());
+
+    const startOfYear = new Date(targetYear, 0, 1);
+    const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
+
+    // Items Ordered (Quantity) by Month
+    const itemsOrderedGraph = await Order.aggregate([
+        { $match: { OrderDate: { $gte: startOfYear, $lte: endOfYear } } },
+        { $unwind: "$Items" },
+        {
+            $group: {
+                _id: { $month: "$OrderDate" },
+                totalQuantity: { $sum: "$Items.Quantity" }
+            }
+        }
+    ]);
+
+    // Items Used (Quantity) by Month
+    const itemsUsedGraph = await Transaction.aggregate([
+        { $match: { Type: 'Utilize', TransactionDate: { $gte: startOfYear, $lte: endOfYear } } },
+        { $unwind: "$Items" },
+        {
+            $group: {
+                _id: { $month: "$TransactionDate" },
+                totalQuantity: { $sum: "$Items.Quantity" }
+            }
+        }
+    ]);
+
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const labels = months;
+    const datasets = { itemsOrdered: [], itemsUsed: [] };
+
+    for (let i = 1; i <= 12; i++) {
+        const orderedVal = itemsOrderedGraph.find(o => o._id === i)?.totalQuantity || 0;
+        const usedVal = itemsUsedGraph.find(u => u._id === i)?.totalQuantity || 0;
+
+        datasets.itemsOrdered.push(orderedVal);
+        datasets.itemsUsed.push(usedVal);
+    }
+
+    return { labels, datasets, year: targetYear, availableYears };
 };

@@ -55,26 +55,45 @@ export const getFinanceStats = async (req, res) => {
         const stuckInventoryValue = stuckInventoryData.length > 0 ? stuckInventoryData[0].totalValue : 0;
 
         // 4. Graph Data: Money Spent (Orders) vs Money Used (Usage) per Month
-        // Get last 6 months
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-        sixMonthsAgo.setDate(1); // Start of month
+
+        // 1. Get all available years logic
+        const orderYears = await Order.aggregate([
+            { $project: { year: { $year: "$OrderDate" } } },
+            { $group: { _id: "$year" } },
+            { $sort: { _id: -1 } }
+        ]);
+        const transactionYears = await Transaction.aggregate([
+            { $match: { Type: 'Utilize' } },
+            { $project: { year: { $year: "$TransactionDate" } } },
+            { $group: { _id: "$year" } },
+            { $sort: { _id: -1 } }
+        ]);
+
+        const availableYears = [...new Set([
+            ...orderYears.map(y => y._id),
+            ...transactionYears.map(y => y._id)
+        ])].sort((a, b) => b - a);
+
+        // Determine target year
+        let targetYear = req.query.year ? parseInt(req.query.year) : (availableYears.length > 0 ? availableYears[0] : new Date().getFullYear());
+
+        const startOfYear = new Date(targetYear, 0, 1);
+        const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
 
         // Aggregate Orders by Month
         const ordersGraph = await Order.aggregate([
-            { $match: { OrderDate: { $gte: sixMonthsAgo } } },
+            { $match: { OrderDate: { $gte: startOfYear, $lte: endOfYear } } },
             {
                 $group: {
                     _id: { $month: "$OrderDate" },
-                    total: { $sum: "$Total" },
-                    year: { $first: { $year: "$OrderDate" } }
+                    total: { $sum: "$Total" }
                 }
             }
         ]);
 
         // Aggregate Usage by Month
         const usageGraph = await Transaction.aggregate([
-            { $match: { Type: 'Utilize', TransactionDate: { $gte: sixMonthsAgo } } },
+            { $match: { Type: 'Utilize', TransactionDate: { $gte: startOfYear, $lte: endOfYear } } },
             { $unwind: "$Items" },
             {
                 $lookup: {
@@ -88,29 +107,21 @@ export const getFinanceStats = async (req, res) => {
             {
                 $group: {
                     _id: { $month: "$TransactionDate" },
-                    total: { $sum: { $multiply: ["$Items.Quantity", "$productInfo.ProductPrice"] } },
-                    year: { $first: { $year: "$TransactionDate" } }
+                    total: { $sum: { $multiply: ["$Items.Quantity", "$productInfo.ProductPrice"] } }
                 }
             }
         ]);
 
         // Normalize Graph Data
         const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        const currentMonth = new Date().getMonth();
-        const labels = [];
+        const labels = months;
         const datasets = { orders: [], usage: [] };
 
-        // Generate labels and fill data for last 6 months
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date();
-            d.setMonth(currentMonth - i);
-            const monIdx = d.getMonth(); // 0-11
-            const monNum = monIdx + 1; // 1-12 matching group _id
-            labels.push(months[monIdx]);
-
+        // Generate data for all 12 months
+        for (let i = 1; i <= 12; i++) {
             // Find matching data or 0
-            const orderVal = ordersGraph.find(o => o._id === monNum)?.total || 0;
-            const usageVal = usageGraph.find(u => u._id === monNum)?.total || 0;
+            const orderVal = ordersGraph.find(o => o._id === i)?.total || 0;
+            const usageVal = usageGraph.find(u => u._id === i)?.total || 0;
 
             datasets.orders.push(orderVal);
             datasets.usage.push(usageVal);
@@ -122,7 +133,9 @@ export const getFinanceStats = async (req, res) => {
             stuckInventoryValue,
             graphData: {
                 labels,
-                datasets
+                datasets,
+                year: targetYear,
+                availableYears
             }
         });
 

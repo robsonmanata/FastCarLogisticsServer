@@ -13,6 +13,12 @@ const ProductSchema = mongoose.Schema({
     ProductSKU: String,
     ProductQuantityUsed: Number,
     ProductBarcode: String,
+    ProductSize: String,
+    ProductUnit: String,
+    ProductSubCategory: String,
+    ProductVehicleType: String,
+    ProductPartCode: String,
+    ProductRevision: String,
 
 }, { timestamps: true });
 
