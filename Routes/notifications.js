@@ -4,7 +4,7 @@ import auth from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', getNotifications);
+router.get('/', auth, getNotifications);
 router.patch('/:id/read', auth, markAsRead);
 
 export default router;

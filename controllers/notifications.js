@@ -9,9 +9,19 @@ export const getNotifications = async (req, res) => {
         const startIndex = (Number(page) - 1) * LIMIT; // get the starting index of every page
         const total = await Notification.countDocuments({});
 
+        const unreadCount = await Notification.countDocuments({
+            "readBy.userId": { $ne: req.userId }
+        });
+
         const notifications = await Notification.find().sort({ createdAt: -1 }).limit(LIMIT).skip(startIndex);
 
-        res.status(200).json({ data: notifications, currentPage: Number(page) || 1, numberOfPages: Math.ceil(total / LIMIT), totalCount: total });
+        res.status(200).json({
+            data: notifications,
+            currentPage: Number(page) || 1,
+            numberOfPages: Math.ceil(total / LIMIT),
+            totalCount: total,
+            unreadCount: unreadCount
+        });
     } catch (error) {
         res.status(404).json({ message: error.message });
     }

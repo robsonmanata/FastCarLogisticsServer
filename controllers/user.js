@@ -110,15 +110,12 @@ export const updateUser = async (req, res) => {
     const newName = `${updatedUser.name} ${updatedUser.surname}`;
     const oldFirstName = originalUser.name;
 
-    console.log(`[UpdateUser] Old Name: "${oldName}", Old First Name: "${oldFirstName}", New Name: "${newName}"`);
-
     if (oldName !== newName) {
         // Update both "First Last" format and legacy "First" format
         const updateResult = await Transaction.updateMany(
             { $or: [{ User: oldName }, { User: oldFirstName }] },
             { User: newName }
         );
-        console.log(`[UpdateUser] Transaction Update Result:`, updateResult);
     }
 
     // Do not return the password hash in the response
