@@ -25,9 +25,41 @@ import Category from '../models/categories.js';
 
 export const createProduct = async (req, res) => {
     const product = req.body;
-    const newProduct = new Product(product);
 
     try {
+        // Check for duplicates (Same Name AND Same SKU)
+        const existingProduct = await Product.findOne({
+            ProductSKU: product.ProductSKU,
+            ProductName: product.ProductName
+        });
+
+        if (existingProduct) {
+            // Update quantity instead of creating new
+            const addedQuantity = Number(product.ProductQuantity) || 0;
+            existingProduct.ProductQuantity = (Number(existingProduct.ProductQuantity) || 0) + addedQuantity;
+
+            await existingProduct.save();
+
+            // Log Transaction (Restock)
+            await createTransaction({
+                User: product.User || 'System',
+                Type: 'Restock',
+                Items: [{
+                    ProductId: existingProduct._id,
+                    ProductName: existingProduct.ProductName,
+                    Quantity: addedQuantity
+                }],
+                Details: `Merged Duplicate Product: Added ${addedQuantity} to existing stock.`
+            });
+
+            // Note: Not setting low stock alert here assuming existing product was already tracked, 
+            // but we could if quantity was low and is now high (unlikely for merge) or still low.
+            // Let's leave it simple.
+
+            return res.status(200).json(existingProduct);
+        }
+
+        const newProduct = new Product(product);
         await newProduct.save();
 
         // Add product to category
