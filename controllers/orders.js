@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Order from '../models/orders.js';
 import Product from '../models/products.js';
 import { createTransaction } from './transactions.js';
+import Notification from '../models/notifications.js';
 
 export const getOrders = async (req, res) => {
     const { page } = req.query;
@@ -35,9 +36,23 @@ export const createOrder = async (req, res) => {
         // Update product quantities (Add stock for deliveries) - Optimized with Promise.all and $inc
         if (newOrder.Items && newOrder.Items.length > 0) {
             await Promise.all(newOrder.Items.map(async (item) => {
-                await Product.findByIdAndUpdate(item.productId, {
+                const updatedProduct = await Product.findByIdAndUpdate(item.productId, {
                     $inc: { ProductQuantity: Number(item.Quantity) }
                 }, { new: true });
+
+                if (Number(item.Quantity) > 0) {
+                    const lowStockNotification = await Notification.findOne({
+                        relatedId: String(item.productId),
+                        type: 'Low Stock'
+                    }).sort({ createdAt: -1 });
+
+                    if (lowStockNotification) {
+                        lowStockNotification.type = 'Restocked';
+                        lowStockNotification.message = `Restocked: ${updatedProduct.ProductName} now has ${updatedProduct.ProductQuantity} items.`;
+                        lowStockNotification.readBy = [];
+                        await lowStockNotification.save();
+                    }
+                }
             }));
 
             await createTransaction({
@@ -92,9 +107,23 @@ export const updateOrder = async (req, res) => {
         // 3. Apply stock changes from the NEW order - Optimized
         if (updatedOrder.Items) {
             await Promise.all(updatedOrder.Items.map(async (item) => {
-                await Product.findByIdAndUpdate(item.productId, {
+                const updatedProduct = await Product.findByIdAndUpdate(item.productId, {
                     $inc: { ProductQuantity: Number(item.Quantity) }
                 }, { new: true });
+
+                if (Number(item.Quantity) > 0) {
+                    const lowStockNotification = await Notification.findOne({
+                        relatedId: String(item.productId),
+                        type: 'Low Stock'
+                    }).sort({ createdAt: -1 });
+
+                    if (lowStockNotification) {
+                        lowStockNotification.type = 'Restocked';
+                        lowStockNotification.message = `Restocked: ${updatedProduct.ProductName} now has ${updatedProduct.ProductQuantity} items.`;
+                        lowStockNotification.readBy = [];
+                        await lowStockNotification.save();
+                    }
+                }
             }));
 
             await createTransaction({
