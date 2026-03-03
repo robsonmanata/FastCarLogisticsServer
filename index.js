@@ -13,6 +13,7 @@ import transactionRoutes from './Routes/transactions.js';
 import notificationRoutes from './Routes/notifications.js';
 import dashboardRoutes from './Routes/dashboard.js';
 import financesRoutes from './Routes/finances.js';
+import messagesRoutes from './routes/messages.js';
 
 dotenv.config();
 
@@ -41,3 +42,4 @@ app.use('/user', userRoutes);
 app.use('/orders', ordersRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/finances', financesRoutes);
+app.use('/messages', messagesRoutes);

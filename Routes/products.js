@@ -6,8 +6,27 @@ const router = express.Router();
 // Define routes here
 router.get('/', getProducts);
 router.post('/', createProduct);
-router.patch('/:id', updateProduct);
-router.delete('/:id', deleteProduct);
+
+router.get('/barcode', async (req, res) => {
+    try {
+        const { barcode } = req.query;
+        if (!barcode) return res.status(400).json({ error: 'Barcode required' });
+        const product = await Product.findOne({
+            $or: [
+                { ProductBarcode: barcode },
+                { ProductSKU: barcode }
+            ]
+        });
+        if (product) {
+            return res.status(200).json({ exists: true, product });
+        }
+
+        res.status(200).json({ exists: false });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.get('/check', async (req, res) => {
     try {
         const { sku, name } = req.query;
@@ -51,5 +70,7 @@ router.get('/check', async (req, res) => {
     }
 });
 
+router.patch('/:id', updateProduct);
+router.delete('/:id', deleteProduct);
 
 export default router;

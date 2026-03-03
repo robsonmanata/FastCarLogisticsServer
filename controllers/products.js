@@ -120,6 +120,10 @@ export const updateProduct = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(_id)) return res.status(404).send('No product with that id');
 
+    if (product.ProductQuantity !== undefined && Number(product.ProductQuantity) < 0) {
+        return res.status(400).json({ message: "Product quantity cannot be negative" });
+    }
+
     try {
         const oldProduct = await Product.findById(_id);
 

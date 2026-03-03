@@ -31,6 +31,14 @@ export const createOrder = async (req, res) => {
     const newOrder = new Order(order);
 
     try {
+        if (newOrder.Items && newOrder.Items.length > 0) {
+            for (const item of newOrder.Items) {
+                if (Number(item.Quantity) < 1) {
+                    return res.status(400).json({ message: "Order item quantity must be at least 1." });
+                }
+            }
+        }
+
         await newOrder.save();
 
         // Update product quantities (Add stock for deliveries) - Optimized with Promise.all and $inc
@@ -80,6 +88,14 @@ export const updateOrder = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(_id)) return res.status(404).send('No order with that id');
 
     try {
+        if (order.Items && order.Items.length > 0) {
+            for (const item of order.Items) {
+                if (Number(item.Quantity) < 1) {
+                    return res.status(400).json({ message: "Order item quantity must be at least 1." });
+                }
+            }
+        }
+
         // 1. Revert stock changes from the OLD order - Optimized
         const oldOrder = await Order.findById(_id);
         if (oldOrder && oldOrder.Items) {
