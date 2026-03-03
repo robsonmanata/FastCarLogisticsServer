@@ -13,7 +13,7 @@ import transactionRoutes from './Routes/transactions.js';
 import notificationRoutes from './Routes/notifications.js';
 import dashboardRoutes from './Routes/dashboard.js';
 import financesRoutes from './Routes/finances.js';
-import messagesRoutes from './routes/messages.js';
+import messagesRoutes from './Routes/messages.js';
 
 dotenv.config();
 
