@@ -14,6 +14,7 @@ import notificationRoutes from './Routes/notifications.js';
 import dashboardRoutes from './Routes/dashboard.js';
 import financesRoutes from './Routes/finances.js';
 import messagesRoutes from './Routes/messages.js';
+import searchRoutes from './Routes/search.js';
 
 dotenv.config();
 
@@ -43,3 +44,4 @@ app.use('/orders', ordersRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/finances', financesRoutes);
 app.use('/messages', messagesRoutes);
+app.use('/search', searchRoutes);
