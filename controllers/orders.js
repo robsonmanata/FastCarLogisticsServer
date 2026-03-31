@@ -9,7 +9,7 @@ export const getOrders = async (req, res) => {
 
     try {
         if (page === 'all') {
-            const orders = await Order.find().sort({ _id: -1 });
+            const orders = await Order.find().sort({ _id: -1 }).lean();
             res.status(200).json({ data: orders, currentPage: 1, numberOfPages: 1, totalCount: orders.length });
             return;
         }
@@ -18,7 +18,7 @@ export const getOrders = async (req, res) => {
         const startIndex = (Number(page) - 1) * LIMIT;
         const total = await Order.countDocuments({});
 
-        const orders = await Order.find().sort({ _id: -1 }).limit(LIMIT).skip(startIndex);
+        const orders = await Order.find().sort({ _id: -1 }).limit(LIMIT).skip(startIndex).lean();
 
         res.status(200).json({ data: orders, currentPage: Number(page) || 1, numberOfPages: Math.ceil(total / LIMIT), totalCount: total });
     } catch (error) {

@@ -51,7 +51,7 @@ export const signup = async (req, res) => {
             password: hashedPassword,
             name: firstName,
             surname: lastName,
-            role,
+            role: role,
             profilePicture,
             Permissions: []
         });
@@ -67,7 +67,7 @@ export const signup = async (req, res) => {
 
 export const getUsers = async (req, res) => {
     try {
-        const users = await User.find();
+        const users = await User.find().select('-password -profilePicture').lean();
         res.status(200).json(users);
     } catch (error) {
         res.status(404).json({ message: error.message });
@@ -75,10 +75,28 @@ export const getUsers = async (req, res) => {
 }
 
 export const createUser = async (req, res) => {
-    const user = req.body;
-    const newUser = new User(user);
     try {
-        await newUser.save();
+        const { email, password, firstName, lastName, name, surname, role, profilePicture } = req.body;
+
+        const existingUser = await User.findOne({ email });
+        if (existingUser) return res.status(400).json({ message: "User already exists." });
+
+        const fName = firstName || name;
+        const lName = lastName || surname;
+
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        const newUser = await User.create({
+            email,
+            password: hashedPassword,
+            name: fName,
+            surname: lName,
+            role: role || 'User',
+            profilePicture,
+            Permissions: []
+        });
+
+        newUser.password = undefined;
         res.status(201).json(newUser);
     } catch (error) {
         res.status(409).json({ message: error.message });

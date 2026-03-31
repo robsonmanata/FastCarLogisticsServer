@@ -6,38 +6,50 @@ import mongoose from 'mongoose';
 export const getConversations = async (req, res) => {
     try {
         const userId = req.userId;
+        const objectIdUser = new mongoose.Types.ObjectId(userId);
 
-        // Find all unique users the current user has exchanged messages with
-        const messages = await MessageMessage.find({
-            $or: [{ sender: userId }, { receiver: userId }]
-        }).sort({ createdAt: -1 });
+        const convs = await MessageMessage.aggregate([
+            {
+                $match: {
+                    $or: [
+                        { sender: objectIdUser },
+                        { receiver: objectIdUser }
+                    ]
+                }
+            },
+            {
+                $sort: { createdAt: -1 }
+            },
+            {
+                $group: {
+                    _id: {
+                        $cond: {
+                            if: { $eq: ["$sender", objectIdUser] },
+                            then: "$receiver",
+                            else: "$sender"
+                        }
+                    },
+                    lastMessage: { $first: "$$ROOT" },
+                    unreadCount: {
+                        $sum: {
+                            $cond: [{ $and: [{ $eq: ["$receiver", objectIdUser] }, { $eq: ["$isRead", false] }] }, 1, 0]
+                        }
+                    }
+                }
+            }
+        ]);
 
-        const conversationsMap = new Map();
         let totalUnread = 0;
+        const userIds = [];
+        const conversationsMap = new Map();
 
-        for (const msg of messages) {
-            // Determine the "other" person in the chat
-            const otherUserId = msg.sender.toString() === userId ? msg.receiver.toString() : msg.sender.toString();
-
-            if (!conversationsMap.has(otherUserId)) {
-                conversationsMap.set(otherUserId, {
-                    lastMessage: msg,
-                    unreadCount: 0
-                });
-            }
-
-            // If the message was sent to the current user and is unread, increment count
-            if (msg.receiver.toString() === userId && !msg.isRead) {
-                const conv = conversationsMap.get(otherUserId);
-                conv.unreadCount += 1;
-                conversationsMap.set(otherUserId, conv);
-                totalUnread += 1;
-            }
+        for (const conv of convs) {
+            totalUnread += conv.unreadCount;
+            userIds.push(conv._id);
+            conversationsMap.set(conv._id.toString(), conv);
         }
 
-        // Fetch user details for the other users
-        const userIds = Array.from(conversationsMap.keys());
-        const users = await User.find({ _id: { $in: userIds } }).select('name surname email profilePicture');
+        const users = await User.find({ _id: { $in: userIds } }).select('name surname email');
 
         const conversations = users.map(u => ({
             user: u,
@@ -57,12 +69,14 @@ export const getMessagesWithUser = async (req, res) => {
     const userId = req.userId;
 
     try {
-        const messages = await MessageMessage.find({
+        let messages = await MessageMessage.find({
             $or: [
                 { sender: userId, receiver: otherUserId },
                 { sender: otherUserId, receiver: userId }
             ]
-        }).sort({ createdAt: 1 }); // Oldest first for chat UI
+        }).sort({ createdAt: -1 }).limit(100).lean();
+
+        messages = messages.reverse();
 
         res.status(200).json(messages);
     } catch (error) {
