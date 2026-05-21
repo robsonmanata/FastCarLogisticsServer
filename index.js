@@ -1,3 +1,4 @@
+
 import express from 'express';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
@@ -10,12 +11,16 @@ import userRoutes from './Routes/user.js';
 import ordersRoutes from './Routes/orders.js';
 import transactionRoutes from './Routes/transactions.js';
 import notificationRoutes from './Routes/notifications.js';
+import dashboardRoutes from './Routes/dashboard.js';
+import financesRoutes from './Routes/finances.js';
+import messagesRoutes from './Routes/messages.js';
+import searchRoutes from './Routes/search.js';
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3001;
-
+const port = process.env.PORT || 3000;
+//cores implementation
 // Middleware
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb', extended: true }));
@@ -36,3 +41,7 @@ app.use('/transactions', transactionRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/user', userRoutes);
 app.use('/orders', ordersRoutes);
+app.use('/dashboard', dashboardRoutes);
+app.use('/finances', financesRoutes);
+app.use('/messages', messagesRoutes);
+app.use('/search', searchRoutes);

@@ -2,6 +2,7 @@ import Product from '../models/products.js';
 import mongoose from 'mongoose';
 import { createTransaction } from './transactions.js';
 import { createNotification } from './notifications.js';
+import Notification from '../models/notifications.js';
 
 export const getProducts = async (req, res) => {
     const { page } = req.query;
@@ -25,9 +26,55 @@ import Category from '../models/categories.js';
 
 export const createProduct = async (req, res) => {
     const product = req.body;
-    const newProduct = new Product(product);
 
     try {
+        // Check for duplicates (Same Name AND Same SKU)
+        const existingProduct = await Product.findOne({
+            ProductSKU: product.ProductSKU,
+            ProductName: product.ProductName
+        });
+
+        if (existingProduct) {
+            // Update quantity instead of creating new
+            const addedQuantity = Number(product.ProductQuantity) || 0;
+            existingProduct.ProductQuantity = (Number(existingProduct.ProductQuantity) || 0) + addedQuantity;
+
+            await existingProduct.save();
+
+            // Log Transaction (Restock)
+            await createTransaction({
+                User: product.User || 'System',
+                Type: 'Restock',
+                Items: [{
+                    ProductId: existingProduct._id,
+                    ProductName: existingProduct.ProductName,
+                    Quantity: addedQuantity
+                }],
+                Details: `Merged Duplicate Product: Added ${addedQuantity} to existing stock.`
+            });
+
+            // Note: Not setting low stock alert here assuming existing product was already tracked, 
+            // but we could if quantity was low and is now high (unlikely for merge) or still low.
+            // Let's leave it simple.
+
+            if (addedQuantity > 0) {
+                const lowStockNotification = await Notification.findOne({
+                    relatedId: String(existingProduct._id),
+                    type: 'Low Stock'
+                }).sort({ createdAt: -1 });
+
+                if (lowStockNotification) {
+                    lowStockNotification.type = 'Restocked';
+                    lowStockNotification.message = `Restocked: ${existingProduct.ProductName} now has ${existingProduct.ProductQuantity} items.`;
+                    lowStockNotification.readBy = [];
+                    await lowStockNotification.save();
+                }
+            }
+
+            return res.status(200).json(existingProduct);
+        }
+
+        const newProduct = new Product(product);
         await newProduct.save();
 
         // Add product to category
@@ -73,6 +120,10 @@ export const updateProduct = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(_id)) return res.status(404).send('No product with that id');
 
+    if (product.ProductQuantity !== undefined && Number(product.ProductQuantity) < 0) {
+        return res.status(400).json({ message: "Product quantity cannot be negative" });
+    }
+
     try {
         const oldProduct = await Product.findById(_id);
 
@@ -112,6 +163,24 @@ export const updateProduct = async (req, res) => {
                 }],
                 Details: quantityDiff > 0 ? 'Manual Restock' : 'Stock Utilization'
             });
+
+            if (quantityDiff > 0) {
+                console.log(`[RestockDebug] Quantity increased by ${quantityDiff}. Product ID: ${_id}`);
+                const lowStockNotification = await Notification.findOne({
+                    relatedId: String(_id),
+                    type: 'Low Stock'
+                }).sort({ createdAt: -1 });
+
+                if (lowStockNotification) {
+                    console.log('[RestockDebug] Found Low Stock notification');
+                    lowStockNotification.type = 'Restocked';
+                    lowStockNotification.message = `Restocked: ${updatedProduct.ProductName} now has ${updatedProduct.ProductQuantity} items.`;
+                    lowStockNotification.readBy = [];
+                    await lowStockNotification.save();
+                } else {
+                    console.log('[RestockDebug] No Low Stock notification found');
+                }
+            }
         }
 
         if ((Number(updatedProduct.ProductQuantity) || 0) < 10) {
